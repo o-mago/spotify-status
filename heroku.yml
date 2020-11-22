@@ -1,3 +1,10 @@
 build:
     docker:
         web: Dockerfile
+    config:
+        ARG SPOTIFY_ID
+        ARG SPOTIFY_SECRET
+        ARG SLACK_CLIENT_ID
+        ARG SLACK_CLIENT_SECRET
+        ARG SLACK_TOKEN
+        ARG SPOTIFY_REDIRECT_URL

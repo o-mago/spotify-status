@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
@@ -21,9 +22,27 @@ var (
 	auth        = spotify.NewAuthenticator(redirectURI, spotify.ScopeUserReadCurrentlyPlaying)
 	chSpotify   = make(chan *spotify.Client)
 	state       = tokenGenerator()
-	user        = ""
+	users       = make(map[string]APIs)
 	port        = os.Getenv("PORT")
 )
+
+type Cookie struct {
+	Name       string
+	Value      string
+	Path       string
+	Domain     string
+	Expires    time.Time
+	RawExpires string
+
+	// MaxAge=0 means no 'Max-Age' attribute specified.
+	// MaxAge<0 means delete cookie now, equivalently 'Max-Age: 0'
+	// MaxAge>0 means Max-Age attribute present and given in seconds
+	MaxAge   int
+	Secure   bool
+	HttpOnly bool
+	Raw      string
+	Unparsed []string // Raw text of unparsed attribute-value pairs
+}
 
 type URLString struct {
 	url string
@@ -49,6 +68,11 @@ type SlackResp struct {
 	Enterprise string           `json:"enterprise"`
 }
 
+type APIs struct {
+	spotify *spotify.Client
+	slack   *slack.Client
+}
+
 func main() {
 	spotifyUrl := &URLString{url: auth.AuthURL(state)}
 	http.HandleFunc("/callback", completeAuth)
@@ -57,13 +81,17 @@ func main() {
 	http.Handle("/", fs)
 	go http.ListenAndServe(":"+port, nil)
 
-	client := <-chSpotify
-
-	api := slack.New(os.Getenv("SLACK_TOKEN"))
-
 	c := cron.New(cron.WithSeconds())
-	c.AddFunc("@every 10s", func() { changeStatus(client, api) })
+	c.AddFunc("@every 10s", func() { changeStatus() })
 	c.Start()
+
+	// client := <-chSpotify
+
+	// api := slack.New(os.Getenv("SLACK_TOKEN"))
+
+	// c := cron.New(cron.WithSeconds())
+	// c.AddFunc("@every 10s", func() { changeStatus(client, api) })
+	// c.Start()
 
 	select {}
 }
@@ -79,9 +107,21 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("State mismatch: %s != %s\n", st, state)
 	}
 
-	client := auth.NewClient(tok)
 	fmt.Fprintf(w, "Login Completed!")
-	chSpotify <- &client
+
+	cookieUser, _ := r.Cookie("user")
+	cookieSlack, _ := r.Cookie("slack")
+
+	if _, ok := users[cookieUser.Value]; !ok {
+		api := slack.New(cookieSlack.Value)
+		client := auth.NewClient(tok)
+		userInfo := APIs{
+			slack:   api,
+			spotify: &client,
+		}
+		users[cookieUser.Value] = userInfo
+	}
+	// chSpotify <- &client
 }
 
 func (spotifyUrl *URLString) slackAdd(w http.ResponseWriter, r *http.Request) {
@@ -113,23 +153,35 @@ func (spotifyUrl *URLString) slackAdd(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	user = parsedResp.AuthedUser.Id
+	expiration := time.Now().Add(1 * time.Hour)
+	cookieUser := http.Cookie{Name: "user", Value: parsedResp.AuthedUser.Id, Expires: expiration}
+	cookieSlack := http.Cookie{Name: "slack", Value: parsedResp.AuthedUser.AccessToken, Expires: expiration}
+	http.SetCookie(w, &cookieUser)
+	http.SetCookie(w, &cookieSlack)
 
 	http.Redirect(w, r, spotifyUrl.url, http.StatusSeeOther)
 }
 
-func changeStatus(client *spotify.Client, api *slack.Client) {
-	player, err := client.PlayerCurrentlyPlaying()
-	if err != nil {
-		log.Fatal(err)
+func changeStatus() {
+	fmt.Println(len(users))
+	for user, userInfo := range users {
+		go func(user string, apis APIs) {
+			player, err := apis.spotify.PlayerCurrentlyPlaying()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
+
+			err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
+
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+				return
+			}
+		}(user, userInfo)
 	}
 
-	errors := api.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":musical_note:", 0)
-
-	if errors != nil {
-		fmt.Printf("Error: %s\n", err)
-		return
-	}
 }
 
 func tokenGenerator() string {

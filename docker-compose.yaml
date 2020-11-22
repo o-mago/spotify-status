@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  webapp:
+    ports:
+        - "8080:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SPOTIFY_ID: "${SPOTIFY_ID}"
+        SPOTIFY_SECRET: "${SPOTIFY_SECRET}"
+        SLACK_CLIENT_ID: "${SLACK_CLIENT_ID}"
+        SLACK_CLIENT_SECRET: "${SLACK_CLIENT_SECRET}"
+        SLACK_TOKEN: "${SLACK_TOKEN}"
+        SPOTIFY_REDIRECT_URL: "${SPOTIFY_REDIRECT_URL}"
