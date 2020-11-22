@@ -51,7 +51,6 @@ type SlackResp struct {
 
 func main() {
 	spotifyUrl := &URLString{url: auth.AuthURL(state)}
-	// http.Server.Addr
 	http.HandleFunc("/callback", completeAuth)
 	http.HandleFunc("/slackAuth", spotifyUrl.slackAdd)
 	fs := http.FileServer(http.Dir("./static"))

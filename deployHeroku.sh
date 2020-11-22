@@ -1,0 +1,8 @@
+heroku container:push web --arg SPOTIFY_ID=${SPOTIFY_ID} \
+--arg SPOTIFY_SECRET=${SPOTIFY_SECRET} \
+--arg SLACK_CLIENT_ID=${SLACK_CLIENT_ID} \
+--arg SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET} \
+--arg SLACK_TOKEN=${SLACK_TOKEN} \
+--arg SPOTIFY_REDIRECT_URL=${SPOTIFY_REDIRECT_URL}
+
+heroku container:release web
