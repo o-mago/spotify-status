@@ -1,2 +1,3 @@
 build:
-    web: Dockerfile
+    docker:
+        web: Dockerfile
