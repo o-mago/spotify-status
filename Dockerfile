@@ -12,4 +12,6 @@ RUN chmod +x ./bin/spotify-status
 
 EXPOSE 8080
 
+EXPOSE $PORT
+
 CMD ["./bin/spotify-status"]

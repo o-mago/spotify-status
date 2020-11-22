@@ -16,13 +16,13 @@ import (
 	"github.com/zmb3/spotify"
 )
 
-var redirectURI = os.Getenv("SPOTIFY_REDIRECT_URL")
-
 var (
-	auth      = spotify.NewAuthenticator(redirectURI, spotify.ScopeUserReadCurrentlyPlaying)
-	chSpotify = make(chan *spotify.Client)
-	state     = tokenGenerator()
-	user      = ""
+	redirectURI = os.Getenv("SPOTIFY_REDIRECT_URL")
+	auth        = spotify.NewAuthenticator(redirectURI, spotify.ScopeUserReadCurrentlyPlaying)
+	chSpotify   = make(chan *spotify.Client)
+	state       = tokenGenerator()
+	user        = ""
+	port        = os.Getenv("PORT")
 )
 
 type URLString struct {
@@ -56,7 +56,7 @@ func main() {
 	http.HandleFunc("/slackAuth", spotifyUrl.slackAdd)
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
-	go http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(":"+port, nil)
 
 	client := <-chSpotify
 
