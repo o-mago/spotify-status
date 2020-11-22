@@ -71,6 +71,7 @@ type SlackResp struct {
 type APIs struct {
 	spotify *spotify.Client
 	slack   *slack.Client
+	clear   bool
 }
 
 func main() {
@@ -118,6 +119,7 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 		userInfo := APIs{
 			slack:   api,
 			spotify: &client,
+			clear:   false,
 		}
 		users[cookieUser.Value] = userInfo
 	}
@@ -174,12 +176,21 @@ func changeStatus() {
 			fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
 
 			if player.Playing {
-				err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 600)
+				err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
 
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 					return
 				}
+				apis.clear = true
+			} else if apis.clear {
+				err = apis.slack.SetUserCustomStatusWithUser(user, "", "", 0)
+
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					return
+				}
+				apis.clear = false
 			}
 		}(user, userInfo)
 	}
