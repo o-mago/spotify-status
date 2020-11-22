@@ -11,9 +11,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 	"github.com/zmb3/spotify"
-	"gopkg.in/robfig/cron.v3"
 )
 
 var redirectURI = os.Getenv("SPOTIFY_REDIRECT_URL")
