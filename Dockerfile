@@ -12,4 +12,4 @@ RUN chmod +x ./bin/spotify-status
 
 EXPOSE 8080
 
-CMD ./bin/spotify-status
+CMD ["./bin/spotify-status"]
