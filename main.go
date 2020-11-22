@@ -173,11 +173,13 @@ func changeStatus() {
 
 			fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
 
-			err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
+			if player.Playing {
+				err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 600)
 
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-				return
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					return
+				}
 			}
 		}(user, userInfo)
 	}
