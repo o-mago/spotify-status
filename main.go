@@ -38,15 +38,11 @@ type Cookie struct {
 	Domain     string
 	Expires    time.Time
 	RawExpires string
-
-	// MaxAge=0 means no 'Max-Age' attribute specified.
-	// MaxAge<0 means delete cookie now, equivalently 'Max-Age: 0'
-	// MaxAge>0 means Max-Age attribute present and given in seconds
-	MaxAge   int
-	Secure   bool
-	HttpOnly bool
-	Raw      string
-	Unparsed []string // Raw text of unparsed attribute-value pairs
+	MaxAge     int
+	Secure     bool
+	HttpOnly   bool
+	Raw        string
+	Unparsed   []string
 }
 
 type URLString struct {
@@ -111,14 +107,6 @@ func main() {
 	c.AddFunc("@every 10s", func() { changeStatus() })
 	c.Start()
 
-	// client := <-chSpotify
-
-	// api := slack.New(os.Getenv("SLACK_TOKEN"))
-
-	// c := cron.New(cron.WithSeconds())
-	// c.AddFunc("@every 10s", func() { changeStatus(client, api) })
-	// c.Start()
-
 	select {}
 }
 
@@ -160,18 +148,6 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	// if _, ok := users[cookieUser.Value]; !ok {
-	// 	api := cookieSlack.Value
-	// 	client := tok
-	// 	userInfo := APIs{
-	// 		slack:   api,
-	// 		spotify: client,
-	// 		clear:   false,
-	// 	}
-	// 	users[cookieUser.Value] = userInfo
-	// }
-	// chSpotify <- &client
 }
 
 func (spotifyUrl *URLString) slackAdd(w http.ResponseWriter, r *http.Request) {
@@ -247,8 +223,6 @@ func changeStatus() {
 				log.Fatal(err)
 			}
 
-			fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
-
 			if player.Playing {
 				err = slackApi.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
 
@@ -276,37 +250,6 @@ func changeStatus() {
 			}
 		}(id, slackToken, spotifyToken, clear, conn)
 	}
-
-	// for user, userInfo := range users {
-	// 	go func(user string, apis APIs) {
-
-	// 		player, err := apis.spotify.PlayerCurrentlyPlaying()
-	// 		if err != nil {
-	// 			log.Fatal(err)
-	// 		}
-
-	// 		fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
-
-	// 		if player.Playing {
-	// 			err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
-
-	// 			if err != nil {
-	// 				fmt.Printf("Error: %s\n", err)
-	// 				return
-	// 			}
-	// 			apis.clear = true
-	// 		} else if apis.clear {
-	// 			err = apis.slack.SetUserCustomStatusWithUser(user, "", "", 0)
-
-	// 			if err != nil {
-	// 				fmt.Printf("Error: %s\n", err)
-	// 				return
-	// 			}
-	// 			apis.clear = false
-	// 		}
-	// 	}(user, userInfo)
-	// }
-
 }
 
 func tokenGenerator() string {
