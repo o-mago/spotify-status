@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 	"github.com/zmb3/spotify"
@@ -75,9 +76,20 @@ type APIs struct {
 }
 
 func main() {
+	app, err := newrelic.NewApplication(
+		newrelic.ConfigAppName(os.Getenv("NEW_RELIC_APP_NAME")),
+		newrelic.ConfigLicense(os.Getenv("NEW_RELIC_LICENSE")),
+		newrelic.ConfigDistributedTracerEnabled(true),
+	)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+		return
+	}
+
 	spotifyUrl := &URLString{url: auth.AuthURL(state)}
 	http.HandleFunc("/callback", completeAuth)
 	http.HandleFunc("/slackAuth", spotifyUrl.slackAdd)
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/users", usersHandler))
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
 	go http.ListenAndServe(":"+port, nil)
@@ -95,6 +107,11 @@ func main() {
 	// c.Start()
 
 	select {}
+}
+
+func usersHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("New Relic ok")
+	fmt.Fprintf(w, "OK")
 }
 
 func completeAuth(w http.ResponseWriter, r *http.Request) {
