@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -12,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 	"github.com/zmb3/spotify"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -25,6 +28,7 @@ var (
 	state       = tokenGenerator()
 	users       = make(map[string]APIs)
 	port        = os.Getenv("PORT")
+	conn        *pgx.Conn
 )
 
 type Cookie struct {
@@ -70,9 +74,12 @@ type SlackResp struct {
 }
 
 type APIs struct {
-	spotify *spotify.Client
-	slack   *slack.Client
-	clear   bool
+	slack               string
+	clear               bool
+	spotifyAccessToken  string
+	spotifyRefreshToken string
+	spotifyExpiry       time.Time
+	spotifyTokenType    string
 }
 
 func main() {
@@ -85,6 +92,12 @@ func main() {
 		fmt.Printf("Error: %s\n", err)
 		return
 	}
+
+	conn, err = pgx.Connect(context.Background(), os.Getenv("DATABASE_SPOTIFY_URL"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+	}
+	defer conn.Close(context.Background())
 
 	spotifyUrl := &URLString{url: auth.AuthURL(state)}
 	http.HandleFunc("/callback", completeAuth)
@@ -130,16 +143,34 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 	cookieUser, _ := r.Cookie("user")
 	cookieSlack, _ := r.Cookie("slack")
 
-	if _, ok := users[cookieUser.Value]; !ok {
-		api := slack.New(cookieSlack.Value)
-		client := auth.NewClient(tok)
-		userInfo := APIs{
-			slack:   api,
-			spotify: &client,
-			clear:   false,
-		}
-		users[cookieUser.Value] = userInfo
+	var id string
+	err = conn.QueryRow(context.Background(), "select id from users where id=$1", cookieUser.Value).Scan(&id)
+	userInfo := APIs{
+		slack:               cookieSlack.Value,
+		spotifyAccessToken:  tok.AccessToken,
+		spotifyRefreshToken: tok.RefreshToken,
+		spotifyExpiry:       tok.Expiry,
+		spotifyTokenType:    tok.TokenType,
+		clear:               false,
 	}
+	if err != nil {
+		err = addUser(conn, cookieUser.Value, userInfo)
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			return
+		}
+	}
+
+	// if _, ok := users[cookieUser.Value]; !ok {
+	// 	api := cookieSlack.Value
+	// 	client := tok
+	// 	userInfo := APIs{
+	// 		slack:   api,
+	// 		spotify: client,
+	// 		clear:   false,
+	// 	}
+	// 	users[cookieUser.Value] = userInfo
+	// }
 	// chSpotify <- &client
 }
 
@@ -182,10 +213,36 @@ func (spotifyUrl *URLString) slackAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func changeStatus() {
-	fmt.Println(len(users))
-	for user, userInfo := range users {
-		go func(user string, apis APIs) {
-			player, err := apis.spotify.PlayerCurrentlyPlaying()
+	rows, err := conn.Query(context.Background(), "select * from users")
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to query database: %v\n", err)
+	}
+
+	for rows.Next() {
+		var id string
+		var spotifyAccessToken string
+		var spotifyRefreshToken string
+		var spotifyExpiry time.Time
+		var spotifyTokenType string
+		var slackToken string
+		var clear bool
+		err := rows.Scan(&id, &slackToken, &clear, &spotifyAccessToken, &spotifyRefreshToken, &spotifyExpiry, &spotifyTokenType)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+		}
+		spotifyToken := new(oauth2.Token)
+		spotifyToken.AccessToken = spotifyAccessToken
+		spotifyToken.RefreshToken = spotifyRefreshToken
+		spotifyToken.Expiry = spotifyExpiry
+		spotifyToken.TokenType = slackToken
+		go func(user string, slackToken string, spotifyToken *oauth2.Token, clear bool, conn *pgx.Conn) {
+
+			slackApi := slack.New(slackToken)
+
+			spotifyApi := auth.NewClient(spotifyToken)
+
+			player, err := spotifyApi.PlayerCurrentlyPlaying()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -193,24 +250,62 @@ func changeStatus() {
 			fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
 
 			if player.Playing {
-				err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
+				err = slackApi.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
 
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 					return
 				}
-				apis.clear = true
-			} else if apis.clear {
-				err = apis.slack.SetUserCustomStatusWithUser(user, "", "", 0)
+				err = updateUserClear(conn, true, user)
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					return
+				}
+			} else if clear {
+				err = slackApi.SetUserCustomStatusWithUser(user, "", "", 0)
 
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 					return
 				}
-				apis.clear = false
+				err = updateUserClear(conn, true, user)
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					return
+				}
 			}
-		}(user, userInfo)
+		}(id, slackToken, spotifyToken, clear, conn)
 	}
+
+	// for user, userInfo := range users {
+	// 	go func(user string, apis APIs) {
+
+	// 		player, err := apis.spotify.PlayerCurrentlyPlaying()
+	// 		if err != nil {
+	// 			log.Fatal(err)
+	// 		}
+
+	// 		fmt.Println(user, player.Item.Name+" - "+player.Item.Artists[0].Name)
+
+	// 		if player.Playing {
+	// 			err = apis.slack.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
+
+	// 			if err != nil {
+	// 				fmt.Printf("Error: %s\n", err)
+	// 				return
+	// 			}
+	// 			apis.clear = true
+	// 		} else if apis.clear {
+	// 			err = apis.slack.SetUserCustomStatusWithUser(user, "", "", 0)
+
+	// 			if err != nil {
+	// 				fmt.Printf("Error: %s\n", err)
+	// 				return
+	// 			}
+	// 			apis.clear = false
+	// 		}
+	// 	}(user, userInfo)
+	// }
 
 }
 
@@ -218,4 +313,23 @@ func tokenGenerator() string {
 	b := make([]byte, 4)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)
+}
+
+func addUser(conn *pgx.Conn, user string, userInfo APIs) error {
+	_, err := conn.Exec(context.Background(), `insert into 
+	users(id, spotify_access_token, spotify_refresh_token, spotify_expiry, spotify_token_type, slack, clear) 
+	values($1, $2, $3, $4, $5, $6, $7)`,
+		user,
+		userInfo.spotifyAccessToken,
+		userInfo.spotifyRefreshToken,
+		userInfo.spotifyExpiry,
+		userInfo.spotifyTokenType,
+		userInfo.slack,
+		userInfo.clear)
+	return err
+}
+
+func updateUserClear(conn *pgx.Conn, clear bool, id string) error {
+	_, err := conn.Exec(context.Background(), "update users set clear=$1 where id=$2", clear, id)
+	return err
 }
