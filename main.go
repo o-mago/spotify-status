@@ -242,7 +242,7 @@ func changeStatus() {
 					fmt.Printf("Error: %s\n", err)
 					return
 				}
-				err = updateUserClear(conn, true, user)
+				err = updateUserClear(conn, false, user)
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 					return
