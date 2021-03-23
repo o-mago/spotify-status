@@ -176,7 +176,8 @@ func (spotifyUrl *URLString) slackAdd(w http.ResponseWriter, r *http.Request) {
 	var parsedResp SlackResp
 	err = json.Unmarshal(body, &parsedResp)
 	if err != nil {
-		panic(err)
+		fmt.Printf("Error: %s\n", err)
+		return
 	}
 
 	expiration := time.Now().Add(1 * time.Hour)
@@ -220,11 +221,19 @@ func changeStatus() {
 
 			player, err := spotifyApi.PlayerCurrentlyPlaying()
 			if err != nil {
-				log.Fatal(err)
+				fmt.Printf("Error: %s\n", err)
+				return
 			}
 
 			if player.Playing {
-				err = slackApi.SetUserCustomStatusWithUser(user, player.Item.Name+" - "+player.Item.Artists[0].Name, ":spotify:", 0)
+				songName := player.Item.Name
+				slackStatus := songName + " - " + player.Item.Artists[0].Name
+				if len(slackStatus) > 100 {
+					extraChars := len(slackStatus) - 100 + 3
+					songName = player.Item.Name[:len(player.Item.Name)-extraChars]
+					slackStatus = songName + "... - " + player.Item.Artists[0].Name
+				}
+				err = slackApi.SetUserCustomStatusWithUser(user, slackStatus, ":spotify:", 0)
 
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
