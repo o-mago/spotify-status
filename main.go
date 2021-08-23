@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
@@ -24,11 +24,9 @@ import (
 var (
 	redirectURI = os.Getenv("SPOTIFY_REDIRECT_URL")
 	auth        = spotify.NewAuthenticator(redirectURI, spotify.ScopeUserReadCurrentlyPlaying)
-	chSpotify   = make(chan *spotify.Client)
 	state       = tokenGenerator()
-	users       = make(map[string]APIs)
 	port        = os.Getenv("PORT")
-	conn        *pgx.Conn
+	conn        *pgxpool.Pool
 )
 
 type Cookie struct {
@@ -89,11 +87,11 @@ func main() {
 		return
 	}
 
-	conn, err = pgx.Connect(context.Background(), os.Getenv("DATABASE_SPOTIFY_URL"))
+	conn, err = pgxpool.Connect(context.Background(), os.Getenv("DATABASE_SPOTIFY_URL"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 	}
-	defer conn.Close(context.Background())
+	defer conn.Close()
 
 	spotifyUrl := &URLString{url: auth.AuthURL(state)}
 	http.HandleFunc("/callback", completeAuth)
@@ -213,7 +211,7 @@ func changeStatus() {
 		spotifyToken.RefreshToken = spotifyRefreshToken
 		spotifyToken.Expiry = spotifyExpiry
 		spotifyToken.TokenType = slackToken
-		go func(user string, slackToken string, spotifyToken *oauth2.Token, clear bool, conn *pgx.Conn) {
+		go func(user string, slackToken string, spotifyToken *oauth2.Token, clear bool, conn *pgxpool.Pool) {
 
 			slackApi := slack.New(slackToken)
 
@@ -267,7 +265,7 @@ func tokenGenerator() string {
 	return fmt.Sprintf("%x", b)
 }
 
-func addUser(conn *pgx.Conn, user string, userInfo APIs) error {
+func addUser(conn *pgxpool.Pool, user string, userInfo APIs) error {
 	_, err := conn.Exec(context.Background(), `insert into 
 	users(id, spotify_access_token, spotify_refresh_token, spotify_expiry, spotify_token_type, slack, clear) 
 	values($1, $2, $3, $4, $5, $6, $7)`,
@@ -281,7 +279,7 @@ func addUser(conn *pgx.Conn, user string, userInfo APIs) error {
 	return err
 }
 
-func updateUserClear(conn *pgx.Conn, clear bool, id string) error {
+func updateUserClear(conn *pgxpool.Pool, clear bool, id string) error {
 	_, err := conn.Exec(context.Background(), "update users set clear=$1 where id=$2", clear, id)
 	return err
 }
