@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:1.18-alpine
 
 ARG SPOTIFY_SLACK_APP_SLACK_CLIENT_ID
 ARG SPOTIFY_SLACK_APP_SLACK_CLIENT_SECRET
@@ -21,12 +21,10 @@ WORKDIR /app
 
 RUN go mod download
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/spotify-status
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/spotify-status ./src
 
 RUN chmod +x ./bin/spotify-status
 
-EXPOSE 8080
-
-EXPOSE $PORT
+EXPOSE ${SPOTIFY_SLACK_APP_PORT}
 
 CMD ["./bin/spotify-status"]
