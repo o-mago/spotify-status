@@ -5,6 +5,7 @@ Built with:
 - Go
 - Docker
 - Heroku
+- New Relic
 - Slack API
 - Spotify API
 
