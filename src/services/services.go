@@ -61,11 +61,17 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 		go func(user domain.User) {
 			slackApi := slack.New(user.SlackAccessToken)
 
-			spotifyApi := s.spotifyAuthenticator.NewClient(new(oauth2.Token))
+			spotifyToken := oauth2.Token{
+				AccessToken:  user.SpotifyAccessToken,
+				RefreshToken: user.SpotifyRefreshToken,
+				Expiry:       user.SpotifyExpiry,
+				TokenType:    user.SpotifyTokenType,
+			}
+			spotifyApi := s.spotifyAuthenticator.NewClient(&spotifyToken)
 
 			player, err := spotifyApi.PlayerCurrentlyPlaying()
 			if err != nil {
-				fmt.Printf("Error: %s\n", err)
+				fmt.Printf("Error spotify currently playing: %s\n", err)
 				return
 			}
 
@@ -75,7 +81,7 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 
 			profile, err := slackApi.GetUserProfile(&slack.GetUserProfileParameters{UserID: user.SlackUserID})
 			if err != nil {
-				fmt.Printf("Error: %s\n", err)
+				fmt.Printf("Error slack get user profile: %s\n", err)
 				return
 			}
 
@@ -92,17 +98,17 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 					songName = player.Item.Name[:len(player.Item.Name)-extraChars]
 					slackStatus = songName + "... - " + player.Item.Artists[0].Name
 				}
-				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, slackStatus, ":spotify:", 0)
 
+				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, slackStatus, ":spotify:", 0)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err)
+					fmt.Printf("Error slack set user custom status: %s\n", err)
 					return
 				}
 			} else if profile.StatusEmoji == ":spotify:" {
-				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, "", "", 0)
 
+				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, "", "", 0)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err)
+					fmt.Printf("Error slack set user custom status: %s\n", err)
 					return
 				}
 			}

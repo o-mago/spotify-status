@@ -49,6 +49,9 @@ func (repo repositories) GetUserByID(ctx context.Context, id string) (domain.Use
 func (repo repositories) GetUserBySlackUserID(ctx context.Context, slackUserID string) (domain.User, error) {
 	user := db_entities.User{}
 	if err := repo.DB.Take(&user, "slack_user_id = ?", slackUserID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.User{}, app_error.UserNotFound
+		}
 		return domain.User{}, err
 	}
 	return user.ToDomain(), nil

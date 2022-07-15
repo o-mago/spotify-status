@@ -25,7 +25,7 @@ func main() {
 	spotifyRedirectURL := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_REDIRECT_URL")
 	slackClientID := os.Getenv("SPOTIFY_SLACK_APP_SLACK_CLIENT_ID")
 	slackClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SLACK_CLIENT_SECRET")
-	port := os.Getenv("SPOTIFY_SLACK_APP_PORT")
+	port := os.Getenv("PORT")
 
 	// Setup New Relic
 	newRelicApp, err := newrelic.NewApplication(
