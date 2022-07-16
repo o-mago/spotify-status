@@ -23,4 +23,4 @@ heroku container:login
 ```
 
 ### Running app
-`https://spotify-status-slack.herokuapp.com/`
+[https://spotify-status-slack.herokuapp.com/](https://spotify-status-slack.herokuapp.com/)

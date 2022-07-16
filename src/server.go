@@ -1,20 +1,22 @@
 package main
 
 import (
+	"context"
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/o-mago/spotify-status/src/app"
+	"github.com/o-mago/spotify-status/src/handlers"
+	"github.com/o-mago/spotify-status/src/repositories"
 	"github.com/o-mago/spotify-status/src/repositories/db_entities"
+	"github.com/o-mago/spotify-status/src/services"
+	"github.com/robfig/cron/v3"
+	"github.com/zmb3/spotify"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
-
-type App struct {
-	Db *gorm.DB
-}
 
 func main() {
 	// Get environment variables
@@ -46,16 +48,32 @@ func main() {
 
 	db.AutoMigrate(&db_entities.User{})
 
-	// Setup app
-	app := app.NewApp(db, slackAuthURL, spotifyRedirectURL, slackClientID, slackClientSecret)
+	// Creating Spotify Authenticator
+	spotifyAuthenticator := spotify.NewAuthenticator(spotifyRedirectURL, spotify.ScopeUserReadCurrentlyPlaying)
+
+	// Creating app layers (repositories, services, handlers)
+	repositories := repositories.NewRepository(db)
+	services := services.NewServices(repositories, spotifyAuthenticator)
+	handlers := handlers.NewHandlers(services, spotifyAuthenticator, stateGenerator(), slackClientID, slackClientSecret, slackAuthURL)
+
+	// Setup cronjob for updating status
+	c := cron.New(cron.WithSeconds())
+	c.AddFunc("@every 10s", func() { services.ChangeUserStatus(context.Background()) })
+	c.Start()
 
 	// Add handlers
 	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", app.Handlers.CompleteAuthHandler)
-	mux.HandleFunc("/slackAuth", app.Handlers.SlackAddHandler)
-	mux.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/users", app.Handlers.HealthHandler))
+	mux.HandleFunc("/callback", handlers.CompleteAuthHandler)
+	mux.HandleFunc("/slackAuth", handlers.SlackAddHandler)
+	mux.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/users", handlers.HealthHandler))
 	fs := http.FileServer(http.Dir("./static"))
 	mux.Handle("/", fs)
 
 	http.ListenAndServe(":"+port, mux)
+}
+
+func stateGenerator() string {
+	b := make([]byte, 4)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }
