@@ -43,8 +43,7 @@ func (s services) AddUser(ctx context.Context, slackUserID, slackAccessToken str
 				SpotifyExpiry:       spotifyToken.Expiry,
 				SpotifyTokenType:    spotifyToken.TokenType,
 			}
-			_, err := s.repositories.CreateUser(ctx, user)
-			return err
+			return s.repositories.CreateUser(ctx, user)
 		}
 		return err
 	}

@@ -15,8 +15,7 @@ type repositories struct {
 }
 
 type Repositories interface {
-	CreateUser(ctx context.Context, domainUser domain.User) (domain.User, error)
-	GetUserByID(ctx context.Context, userID string) (domain.User, error)
+	CreateUser(ctx context.Context, domainUser domain.User) error
 	GetUserBySlackUserID(ctx context.Context, slackUserID string) (domain.User, error)
 	SearchUsers(ctx context.Context) ([]domain.User, error)
 }
@@ -27,23 +26,9 @@ func NewRepository(db *gorm.DB) Repositories {
 	}
 }
 
-func (repo repositories) CreateUser(ctx context.Context, domainUser domain.User) (domain.User, error) {
+func (repo repositories) CreateUser(ctx context.Context, domainUser domain.User) error {
 	user := db_entities.NewUserFromDomain(domainUser)
-	if err := repo.DB.Create(&user).Error; err != nil {
-		return domain.User{}, err
-	}
-	return repo.GetUserByID(ctx, user.ID)
-}
-
-func (repo repositories) GetUserByID(ctx context.Context, id string) (domain.User, error) {
-	user := db_entities.User{}
-	if err := repo.DB.Take(&user, "id = ?", id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.User{}, app_error.UserNotFound
-		}
-		return domain.User{}, err
-	}
-	return user.ToDomain(), nil
+	return repo.DB.Create(&user).Error
 }
 
 func (repo repositories) GetUserBySlackUserID(ctx context.Context, slackUserID string) (domain.User, error) {
