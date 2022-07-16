@@ -63,8 +63,8 @@ func main() {
 
 	// Add handlers
 	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", handlers.CompleteAuthHandler)
-	mux.HandleFunc("/slackAuth", handlers.SlackAuthHandler)
+	mux.HandleFunc("/callback", handlers.SpotifyCallbackHandler)
+	mux.HandleFunc("/slackAuth", handlers.SlackCallbackHandler)
 	mux.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/users", handlers.HealthHandler))
 	fs := http.FileServer(http.Dir("./static"))
 	mux.Handle("/", fs)

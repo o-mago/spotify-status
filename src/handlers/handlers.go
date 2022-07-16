@@ -26,8 +26,8 @@ type handlers struct {
 
 type Handlers interface {
 	HealthHandler(w http.ResponseWriter, r *http.Request)
-	CompleteAuthHandler(w http.ResponseWriter, r *http.Request)
-	SlackAuthHandler(w http.ResponseWriter, r *http.Request)
+	SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
+	SlackCallbackHandler(w http.ResponseWriter, r *http.Request)
 
 	writeResponse(w http.ResponseWriter, resp interface{}, status int)
 }
@@ -58,7 +58,7 @@ func (h handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
-func (h handlers) CompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
+func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	userID, err := r.Cookie("user_id")
@@ -84,7 +84,7 @@ func (h handlers) CompleteAuthHandler(w http.ResponseWriter, r *http.Request) {
 	h.services.AddUser(ctx, userID.Value, slackAccessToken.Value, spotifyToken)
 }
 
-func (h handlers) SlackAuthHandler(w http.ResponseWriter, r *http.Request) {
+func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	slackCode := r.URL.Query().Get("code")
 
 	requestBody := url.Values{}
