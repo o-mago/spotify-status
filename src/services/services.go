@@ -68,12 +68,13 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 				return
 			}
 
-			canChangeStatus := profile.StatusEmoji == ":spotify:" || profile.StatusEmoji == ""
-			if !canChangeStatus {
+			canUpdateStatus := player.Playing && (profile.StatusEmoji == ":spotify:" || profile.StatusEmoji == "")
+			canClearStatus := !player.Playing && profile.StatusEmoji == ":spotify:"
+			if !canUpdateStatus && !canClearStatus {
 				return
 			}
 
-			if player.Playing && canChangeStatus {
+			if canUpdateStatus {
 				songName := player.Item.Name
 				slackStatus := songName + " - " + player.Item.Artists[0].Name
 				if len(slackStatus) > 100 {
@@ -85,15 +86,16 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, slackStatus, ":spotify:", 0)
 				if err != nil {
 					fmt.Printf("Error slack set user custom status: %s\n", err)
-					return
 				}
-			} else if profile.StatusEmoji == ":spotify:" {
+				return
+			}
 
+			if canClearStatus {
 				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, "", "", 0)
 				if err != nil {
 					fmt.Printf("Error slack set user custom status: %s\n", err)
-					return
 				}
+				return
 			}
 		}(user)
 	}
