@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/o-mago/spotify-status/src/app_error"
 	"github.com/o-mago/spotify-status/src/domain"
@@ -16,7 +15,6 @@ type repositories struct {
 
 type Repositories interface {
 	CreateUser(ctx context.Context, domainUser domain.User) error
-	GetUserBySlackUserID(ctx context.Context, slackUserID string) (domain.User, error)
 	SearchUsers(ctx context.Context) ([]domain.User, error)
 }
 
@@ -28,18 +26,14 @@ func NewRepository(db *gorm.DB) Repositories {
 
 func (repo repositories) CreateUser(ctx context.Context, domainUser domain.User) error {
 	user := db_entities.NewUserFromDomain(domainUser)
-	return repo.DB.Create(&user).Error
-}
-
-func (repo repositories) GetUserBySlackUserID(ctx context.Context, slackUserID string) (domain.User, error) {
-	user := db_entities.User{}
-	if err := repo.DB.Take(&user, "slack_user_id = ?", slackUserID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.User{}, app_error.UserNotFound
-		}
-		return domain.User{}, err
+	result := repo.DB.FirstOrCreate(&user)
+	if result.Error != nil {
+		return result.Error
 	}
-	return user.ToDomain(), nil
+	if result.RowsAffected == 0 {
+		return app_error.UserAlreadyExists
+	}
+	return nil
 }
 
 func (repo repositories) SearchUsers(ctx context.Context) ([]domain.User, error) {

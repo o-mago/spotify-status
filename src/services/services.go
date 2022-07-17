@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/o-mago/spotify-status/src/app_error"
 	"github.com/o-mago/spotify-status/src/domain"
 	"github.com/o-mago/spotify-status/src/repositories"
 	"github.com/slack-go/slack"
@@ -19,7 +17,7 @@ type services struct {
 }
 
 type Services interface {
-	AddUser(ctx context.Context, slackUserID, slackAccessToken string, spotifyToken *oauth2.Token) error
+	AddUser(ctx context.Context, user domain.User) error
 	ChangeUserStatus(ctx context.Context) error
 }
 
@@ -30,24 +28,8 @@ func NewServices(repositories repositories.Repositories, spotifyAuthenticator sp
 	}
 }
 
-func (s services) AddUser(ctx context.Context, slackUserID, slackAccessToken string, spotifyToken *oauth2.Token) error {
-	_, err := s.repositories.GetUserBySlackUserID(ctx, slackUserID)
-	if err != nil {
-		if err == app_error.UserNotFound {
-			user := domain.User{
-				ID:                  uuid.New().String(),
-				SlackUserID:         slackUserID,
-				SlackAccessToken:    slackAccessToken,
-				SpotifyAccessToken:  spotifyToken.AccessToken,
-				SpotifyRefreshToken: spotifyToken.RefreshToken,
-				SpotifyExpiry:       spotifyToken.Expiry,
-				SpotifyTokenType:    spotifyToken.TokenType,
-			}
-			return s.repositories.CreateUser(ctx, user)
-		}
-		return err
-	}
-	return app_error.UserAlreadyExists
+func (s services) AddUser(ctx context.Context, user domain.User) error {
+	return s.repositories.CreateUser(ctx, user)
 }
 
 func (s services) ChangeUserStatus(ctx context.Context) error {

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/o-mago/spotify-status/src/app_error"
+	"github.com/o-mago/spotify-status/src/domain"
 	"github.com/o-mago/spotify-status/src/services"
 	"github.com/zmb3/spotify"
 )
@@ -81,7 +83,16 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 
-	h.services.AddUser(ctx, userID.Value, slackAccessToken.Value, spotifyToken)
+	user := domain.User{
+		ID:                  uuid.New().String(),
+		SlackUserID:         userID.Value,
+		SlackAccessToken:    slackAccessToken.Value,
+		SpotifyAccessToken:  spotifyToken.AccessToken,
+		SpotifyRefreshToken: spotifyToken.RefreshToken,
+		SpotifyExpiry:       spotifyToken.Expiry,
+		SpotifyTokenType:    spotifyToken.TokenType,
+	}
+	h.services.AddUser(ctx, user)
 }
 
 func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
