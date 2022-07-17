@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/o-mago/spotify-status/src/app_error"
 	"github.com/o-mago/spotify-status/src/domain"
 	"github.com/o-mago/spotify-status/src/services"
@@ -84,7 +83,6 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	user := domain.User{
-		ID:                  uuid.New().String(),
 		SlackUserID:         userID.Value,
 		SlackAccessToken:    slackAccessToken.Value,
 		SpotifyAccessToken:  spotifyToken.AccessToken,

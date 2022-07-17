@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/o-mago/spotify-status/src/domain"
 	"github.com/o-mago/spotify-status/src/repositories"
 	"github.com/slack-go/slack"
@@ -29,6 +30,7 @@ func NewServices(repositories repositories.Repositories, spotifyAuthenticator sp
 }
 
 func (s services) AddUser(ctx context.Context, user domain.User) error {
+	user.ID = uuid.New().String()
 	return s.repositories.CreateUser(ctx, user)
 }
 
