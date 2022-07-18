@@ -9,6 +9,9 @@ Built with:
 - Slack API
 - Spotify API
 
+## Medium
+https://medium.com/@alexandre.cabral/building-a-slack-app-for-spotify-with-go-64ff71959bd1
+
 ### Run locally
 `docker compose up`
 
