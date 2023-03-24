@@ -4,7 +4,7 @@ This slack app allows you to share your musical taste with your coworkers inside
 Built with:
 - Go
 - Docker
-- Heroku
+- Fly.io
 - New Relic
 - Slack API
 - Spotify API
@@ -16,14 +16,16 @@ https://medium.com/@alexandre.cabral/building-a-slack-app-for-spotify-with-go-64
 `docker compose up`
 
 ### Deploying
-First, setup your heroku account, database and new relic, then:
+First, setup your fly.io account, database and new relic, then:
 ```
-heroku login -i
+fly launch
 
-heroku container:login
+fly auth login
 
-./deployHeroku.sh
+fly secrets set <secret>
+
+fly deploy
 ```
 
 ### Running app
-[https://spotify-status-slack.herokuapp.com/](https://spotify-status-slack.herokuapp.com/)
+[https://spotify-status-slack.fly.dev](https://spotify-status-slack.fly.dev)
