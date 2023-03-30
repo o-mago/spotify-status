@@ -34,6 +34,8 @@ func main() {
 	spotifyRedirectURL := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_REDIRECT_URL")
 	slackClientID := os.Getenv("SPOTIFY_SLACK_APP_SLACK_CLIENT_ID")
 	slackClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SLACK_CLIENT_SECRET")
+	spotifyClientID := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_ID")
+	spotifyClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_SECRET")
 	port := os.Getenv("PORT")
 
 	// Setup New Relic
@@ -57,6 +59,7 @@ func main() {
 
 	// Creating Spotify Authenticator
 	spotifyAuthenticator := spotify.NewAuthenticator(spotifyRedirectURL, spotify.ScopeUserReadCurrentlyPlaying)
+	spotifyAuthenticator.SetAuthInfo(spotifyClientID, spotifyClientSecret)
 
 	// Creating app layers (repositories, services, handlers)
 	repositories := repositories.NewRepository(db)
