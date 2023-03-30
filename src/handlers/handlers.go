@@ -64,21 +64,21 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 
 	userID, err := r.Cookie("user_id")
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.InvalidCookie
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 	slackAccessToken, err := r.Cookie("slack_access_token")
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.InvalidCookie
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 
 	spotifyToken, err := h.spotifyAuthenticator.Token(h.spotifyState, r)
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.InvalidSpotifyAuthCode
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 
@@ -103,8 +103,8 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := http.Post(h.slackAuthURL, "application/x-www-form-urlencoded", strings.NewReader(requestBody.Encode()))
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.SlackAuthBadRequest
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 
@@ -112,8 +112,8 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.SlackAuthBadRequest
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 
@@ -134,8 +134,8 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.Unmarshal(body, &slackAuthResponse)
 	if err != nil {
-		fmt.Println(err)
 		appError := app_error.SlackAuthBadRequest
+		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
 	}
 

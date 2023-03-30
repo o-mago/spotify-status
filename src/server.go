@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/o-mago/spotify-status/src/handlers"
@@ -19,6 +22,10 @@ import (
 )
 
 func main() {
+	var wait time.Duration
+	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
+	flag.Parse()
+
 	// Get environment variables
 	newRelicAppName := os.Getenv("SPOTIFY_SLACK_APP_NEW_RELIC_APP_NAME")
 	newRelicLicense := os.Getenv("SPOTIFY_SLACK_APP_NEW_RELIC_LICENSE")
@@ -69,7 +76,32 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	mux.Handle("/", fs)
 
-	http.ListenAndServe(":"+port, mux)
+	srv := &http.Server{
+		Addr:         ":" + port,
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
+		Handler:      mux,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+
+	<-ch
+
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+
+	srv.Shutdown(ctx)
+
+	fmt.Println("shutting down")
+	os.Exit(0)
 }
 
 func stateGenerator() string {
