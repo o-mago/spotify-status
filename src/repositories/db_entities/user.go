@@ -12,7 +12,7 @@ type User struct {
 	ID                  string    `gorm:"column:id;primaryKey"`
 	SlackUserID         string    `gorm:"column:slack_user_id"`
 	SlackAccessToken    string    `gorm:"column:slack_access_token"`
-	SpotifyAccessToken  string    `gorm:"column:apotify_access_token"`
+	SpotifyAccessToken  string    `gorm:"column:spotify_access_token"`
 	SpotifyRefreshToken string    `gorm:"column:spotify_refresh_token"`
 	SpotifyExpiry       time.Time `gorm:"column:slack_expiry"`
 	SpotifyTokenType    string    `gorm:"column:spotify_token_type"`

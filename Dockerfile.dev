@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/wolfi-base
+FROM --platform=linux/amd64 golang:1.21-alpine
 
 ARG SPOTIFY_SLACK_APP_SLACK_CLIENT_ID
 ARG SPOTIFY_SLACK_APP_SLACK_CLIENT_SECRET
@@ -23,15 +23,16 @@ ENV SPOTIFY_SLACK_APP_SLACK_AUTH_URL ${SPOTIFY_SLACK_APP_SLACK_AUTH_URL}
 ENV SPOTIFY_SLACK_APP_CRYPTO_KEY ${SPOTIFY_SLACK_APP_CRYPTO_KEY}
 ENV PORT 8080
 
-RUN apk add ca-certificates && update-ca-certificates
-RUN adduser -D -H -h "/nonexistent" -s "/sbin/nologin" -g "" -u "10001" "appuser"
+ADD . /app
 
-USER appuser
+WORKDIR /app
 
-COPY ./bin ./
+RUN go mod download
 
-COPY ./src/static ./static
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/spotify-status ./src
+
+RUN chmod +x ./bin/spotify-status
 
 EXPOSE $PORT
 
-CMD ["/spotify-status"]
+CMD ["./bin/spotify-status"]

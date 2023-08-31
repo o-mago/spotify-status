@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/o-mago/spotify-status/src/app_error"
 	"github.com/o-mago/spotify-status/src/domain"
@@ -28,6 +29,7 @@ func (repo repositories) CreateUser(ctx context.Context, domainUser domain.User)
 	user := db_entities.NewUserFromDomain(domainUser)
 	result := repo.DB.FirstOrCreate(&user)
 	if result.Error != nil {
+		fmt.Println(result.Statement)
 		return result.Error
 	}
 	if result.RowsAffected == 0 {

@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/o-mago/spotify-status/src/crypto"
 	"github.com/o-mago/spotify-status/src/handlers"
 	"github.com/o-mago/spotify-status/src/repositories"
 	"github.com/o-mago/spotify-status/src/repositories/db_entities"
@@ -19,6 +21,7 @@ import (
 	"github.com/zmb3/spotify"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -36,6 +39,7 @@ func main() {
 	slackClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SLACK_CLIENT_SECRET")
 	spotifyClientID := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_ID")
 	spotifyClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_SECRET")
+	cryptoKey := os.Getenv("SPOTIFY_SLACK_APP_CRYPTO_KEY")
 	port := os.Getenv("PORT")
 
 	// Setup New Relic
@@ -50,7 +54,9 @@ func main() {
 	}
 
 	// Setup connection to the database
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		panic("failed to connect database")
 	}
@@ -61,9 +67,12 @@ func main() {
 	spotifyAuthenticator := spotify.NewAuthenticator(spotifyRedirectURL, spotify.ScopeUserReadCurrentlyPlaying)
 	spotifyAuthenticator.SetAuthInfo(spotifyClientID, spotifyClientSecret)
 
+	// Creating crypto instance
+	crypto := crypto.NewCrypto([]byte(cryptoKey))
+
 	// Creating app layers (repositories, services, handlers)
 	repositories := repositories.NewRepository(db)
-	services := services.NewServices(repositories, spotifyAuthenticator)
+	services := services.NewServices(repositories, spotifyAuthenticator, crypto)
 	handlers := handlers.NewHandlers(services, spotifyAuthenticator, stateGenerator(), slackClientID, slackClientSecret, slackAuthURL)
 
 	// Setup cronjob for updating status
@@ -76,8 +85,8 @@ func main() {
 	mux.HandleFunc("/callback", handlers.SpotifyCallbackHandler)
 	mux.HandleFunc("/slackAuth", handlers.SlackCallbackHandler)
 	mux.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/users", handlers.HealthHandler))
-	fs := http.FileServer(http.Dir("./static"))
-	mux.Handle("/", fs)
+	fsHome := http.FileServer(http.Dir("./static/home"))
+	mux.Handle("/", fsHome)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
@@ -94,7 +103,7 @@ func main() {
 	}()
 
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
+	signal.Notify(ch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	<-ch
 

@@ -22,6 +22,7 @@ func (e appError) Status() int {
 	return e.status
 }
 
+var AddUserError = newAppError("ADD_USER_ERROR", http.StatusInternalServerError)
 var InvalidSpotifyAuthCode = newAppError("INVALID_SPOTIFY_TOKEN", http.StatusForbidden)
 var InvalidCookie = newAppError("INVALID_COOKIE", http.StatusForbidden)
 var SlackAuthBadRequest = newAppError("SLACK_AUTH_BAD_REQUEST", http.StatusBadRequest)

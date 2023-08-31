@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -67,12 +67,14 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.InvalidCookie
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 	slackAccessToken, err := r.Cookie("slack_access_token")
 	if err != nil {
 		appError := app_error.InvalidCookie
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 
 	spotifyToken, err := h.spotifyAuthenticator.Token(h.spotifyState, r)
@@ -80,6 +82,7 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.InvalidSpotifyAuthCode
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 
 	user := domain.User{
@@ -90,7 +93,16 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		SpotifyExpiry:       spotifyToken.Expiry,
 		SpotifyTokenType:    spotifyToken.TokenType,
 	}
-	h.services.AddUser(ctx, user)
+
+	err = h.services.AddUser(ctx, user)
+	if err != nil {
+		appError := app_error.AddUserError
+		fmt.Println(err, appError)
+		h.writeResponse(w, appError.Error(), appError.Status())
+		return
+	}
+
+	http.ServeFile(w, r, "./static/completed/index.html")
 }
 
 func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -106,15 +118,17 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 
 	var slackAuthResponse struct {
@@ -137,6 +151,7 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+		return
 	}
 
 	expiration := time.Now().Add(1 * time.Hour)
