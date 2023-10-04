@@ -19,36 +19,36 @@ This slack app allows you to share your musical taste with your coworkers inside
 
 ## Folders structure
 
-📦src
- ┣ 📂app_error
- ┣ 📂crypto
- ┣ 📂domain
- ┣ 📂handlers
- ┣ 📂repositories
- ┃ ┣ 📂db_entities
- ┣ 📂services
- ┣ 📂static
- ┃ ┣ 📂completed
- ┃ ┣ 📂home
- ┗ 📜server.go
+📦src<br>
+ ┣ 📂app_error<br>
+ ┣ 📂crypto<br>
+ ┣ 📂domain<br>
+ ┣ 📂handlers<br>
+ ┣ 📂repositories<br>
+ ┃ ┣ 📂db_entities<br>
+ ┣ 📂services<br>
+ ┣ 📂static<br>
+ ┃ ┣ 📂completed<br>
+ ┃ ┣ 📂home<br>
+ ┗ 📜server.go<br>
  
-app_error: custom application errors
+`app_error`: custom application errors
 
-domain: entities from application business rules
+`domain`: entities from application business rules
 
-handlers: api handlers
+`handlers`: api handlers
 
-repositories: database related, including queries
+`repositories`: database related, including queries
 
-db_entities: database entities, a mirror from the schema
+`db_entities`: database entities, a mirror from the schema
 
-services: where all the logic is applied to make the magic happen
+`services`: where all the logic is applied to make the magic happen
 
-static: UI files
+`static`: UI files
 
-completed: UI for the completed page (after the user accepted everything)
+`completed`: UI for the completed page (after the user accepted everything)
 
-home: UI for the homepage
+`home`: UI for the homepage
 
 ## Medium (outdated)
 https://medium.com/@alexandre.cabral/building-a-slack-app-for-spotify-with-go-64ff71959bd1
