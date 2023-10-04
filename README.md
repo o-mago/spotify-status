@@ -17,6 +17,15 @@ This slack app allows you to share your musical taste with your coworkers inside
 - [zmb3/spotify](https://github.com/zmb3/spotify)
 - [gorm](https://gorm.io/index.html)
 
+## Application layers
+
+There are 3 main layers:
+- handlers: only call exported services.
+- services: call unexported services and repositories
+- repositories: communicate with database (and eventually other repos)
+
+![layers](https://github.com/o-mago/spotify-status/assets/23153316/8953e646-b0bd-44fd-9c03-ba4347834135)
+
 ## Folders structure
 
 📦src<br>
