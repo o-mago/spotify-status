@@ -3,3 +3,6 @@ build:
 
 deploy: build
 	fly deploy
+
+lint:
+	golangci-lint run -v
