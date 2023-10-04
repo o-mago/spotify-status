@@ -1,6 +1,10 @@
 # Spotify Status for Slack
 This slack app allows you to share your musical taste with your coworkers inside Slack, by allowing the app to connect to your spotify account
 
+<p align="center">
+  <img src="https://github.com/o-mago/spotify-status/assets/23153316/6f47a25a-a574-4de9-9581-4d395e4ab168" alt="Spotify Status working"/>
+</p>
+
 ## Built and running with:
 - Go
 - Docker
