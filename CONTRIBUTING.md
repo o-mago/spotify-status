@@ -31,8 +31,7 @@ Scan through our [existing issues](https://github.com/o-mago/spotify-status/issu
 #### Make changes locally
 
 1. Fork the repository.
-- Using the command line:
-  - [Fork the repo](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo#fork-an-example-repository) so that you can make your changes without affecting the original project until you're ready to merge them.
+[Fork the repo](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo#fork-an-example-repository) so that you can make your changes without affecting the original project until you're ready to merge them.
 
 2. Install or update to **Go**, at the version specified in `go.mod`.
 
