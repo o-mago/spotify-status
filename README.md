@@ -25,7 +25,7 @@ There are 3 main layers:
 - repositories: communicate with database (and eventually other repos)
 
 <p align="center">
-  <img src="https://github.com/o-mago/spotify-status/assets/23153316/8953e646-b0bd-44fd-9c03-ba4347834135" alt="Application layers" style="max-height:500px"/>
+  <img src="https://github.com/o-mago/spotify-status/assets/23153316/8953e646-b0bd-44fd-9c03-ba4347834135" alt="Application layers" style="max-width:50%"/>
 </p>
 
 ## Folders structure
