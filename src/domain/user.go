@@ -10,4 +10,5 @@ type User struct {
 	SpotifyRefreshToken string
 	SpotifyExpiry       time.Time
 	SpotifyTokenType    string
+	Enabled             bool
 }

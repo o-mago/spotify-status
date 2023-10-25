@@ -4,11 +4,9 @@ import (
 	"time"
 
 	"github.com/o-mago/spotify-status/src/domain"
-	"gorm.io/gorm"
 )
 
 type User struct {
-	gorm.Model
 	ID                  string    `gorm:"column:id;primaryKey"`
 	SlackUserID         string    `gorm:"column:slack_user_id"`
 	SlackAccessToken    string    `gorm:"column:slack_access_token"`
@@ -16,6 +14,9 @@ type User struct {
 	SpotifyRefreshToken string    `gorm:"column:spotify_refresh_token"`
 	SpotifyExpiry       time.Time `gorm:"column:slack_expiry"`
 	SpotifyTokenType    string    `gorm:"column:spotify_token_type"`
+	Enabled             bool      `gorm:"column:enabled"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (user User) ToDomain() domain.User {
@@ -27,6 +28,7 @@ func (user User) ToDomain() domain.User {
 		SpotifyRefreshToken: user.SpotifyRefreshToken,
 		SpotifyExpiry:       user.SpotifyExpiry,
 		SpotifyTokenType:    user.SpotifyTokenType,
+		Enabled:             user.Enabled,
 	}
 }
 
@@ -39,6 +41,7 @@ func NewUserFromDomain(user domain.User) User {
 		SpotifyRefreshToken: user.SpotifyRefreshToken,
 		SpotifyExpiry:       user.SpotifyExpiry,
 		SpotifyTokenType:    user.SpotifyTokenType,
+		Enabled:             user.Enabled,
 	}
 }
 

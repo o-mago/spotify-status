@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/o-mago/spotify-status/src/crypto"
@@ -22,6 +21,8 @@ type services struct {
 type Services interface {
 	AddUser(ctx context.Context, user domain.User) error
 	ChangeUserStatus(ctx context.Context) error
+	RemoveUserBySlackID(ctx context.Context, slackID string) error
+	UpdateUserEnabledBySlackID(ctx context.Context, user domain.User) error
 }
 
 func NewServices(repositories repositories.Repositories, spotifyAuthenticator spotify.Authenticator, crypto crypto.Crypto) Services {
@@ -37,19 +38,16 @@ func (s services) AddUser(ctx context.Context, user domain.User) error {
 
 	encSpotifyAccessToken, err := s.crypto.Encrypt(user.SpotifyAccessToken)
 	if err != nil {
-		fmt.Printf("encSpotifyAccessToken: %s\n", err)
 		return err
 	}
 
 	encSpotifyRefreshToken, err := s.crypto.Encrypt(user.SpotifyRefreshToken)
 	if err != nil {
-		fmt.Printf("encSpotifyRefreshToken: %s\n", err)
 		return err
 	}
 
 	encSlackAccessToken, err := s.crypto.Encrypt(user.SlackAccessToken)
 	if err != nil {
-		fmt.Printf("encSlackAccessToken: %s\n", err)
 		return err
 	}
 
@@ -60,10 +58,17 @@ func (s services) AddUser(ctx context.Context, user domain.User) error {
 	return s.repositories.CreateUser(ctx, user)
 }
 
+func (s services) RemoveUserBySlackID(ctx context.Context, id string) error {
+	return s.repositories.RemoveUserBySlackID(ctx, id)
+}
+
+func (s services) UpdateUserEnabledBySlackID(ctx context.Context, user domain.User) error {
+	return s.repositories.UpdateUserEnabledBySlackID(ctx, user)
+}
+
 func (s services) ChangeUserStatus(ctx context.Context) error {
 	users, err := s.repositories.SearchUsers(ctx)
 	if err != nil {
-		fmt.Printf("SearchUsers: %s\n", err)
 		return err
 	}
 
@@ -71,19 +76,16 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 		go func(user domain.User) {
 			decSpotifyAccessToken, err := s.crypto.Decrypt(user.SpotifyAccessToken)
 			if err != nil {
-				fmt.Printf("decSpotifyAccessToken: %s\n", err)
 				return
 			}
 
 			decSpotifyRefreshToken, err := s.crypto.Decrypt(user.SpotifyRefreshToken)
 			if err != nil {
-				fmt.Printf("decSpotifyRefreshToken: %s\n", err)
 				return
 			}
 
 			decSlackAccessToken, err := s.crypto.Decrypt(user.SlackAccessToken)
 			if err != nil {
-				fmt.Printf("decSlackAccessToken: %s\n", err)
 				return
 			}
 
@@ -99,25 +101,21 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 
 			player, err := spotifyApi.PlayerCurrentlyPlaying()
 			if err != nil {
-				fmt.Printf("Error spotify currently playing: %s\n", err)
 				return
 			}
 
 			if player == nil || player.Item == nil {
-				fmt.Printf("player == nil || player.Item == nil: %s\n", err)
 				return
 			}
 
 			profile, err := slackApi.GetUserProfile(&slack.GetUserProfileParameters{UserID: user.SlackUserID})
 			if err != nil {
-				fmt.Printf("Error slack get user profile: %s\n", err)
 				return
 			}
 
 			canUpdateStatus := player.Playing && (profile.StatusEmoji == ":spotify:" || profile.StatusEmoji == "")
 			canClearStatus := !player.Playing && profile.StatusEmoji == ":spotify:"
 			if !canUpdateStatus && !canClearStatus {
-				fmt.Printf("!canUpdateStatus && !canClearStatus: %s\n", err)
 				return
 			}
 
@@ -130,18 +128,14 @@ func (s services) ChangeUserStatus(ctx context.Context) error {
 					slackStatus = songName + "... - " + player.Item.Artists[0].Name
 				}
 
-				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, slackStatus, ":spotify:", 0)
-				if err != nil {
-					fmt.Printf("Error slack set user custom status: %s\n", err)
-				}
+				slackApi.SetUserCustomStatusWithUser(user.SlackUserID, slackStatus, ":spotify:", 0)
+
 				return
 			}
 
 			if canClearStatus {
-				err = slackApi.SetUserCustomStatusWithUser(user.SlackUserID, "", "", 0)
-				if err != nil {
-					fmt.Printf("Error clear user status: %s\n", err)
-				}
+				slackApi.SetUserCustomStatusWithUser(user.SlackUserID, "", "", 0)
+
 				return
 			}
 		}(user)
