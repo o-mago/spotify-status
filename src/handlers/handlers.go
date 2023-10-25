@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,17 +27,23 @@ type handlers struct {
 	slackClientID        string
 	slackClientSecret    string
 	slackAuthURL         string
+	slackSigningSecret   string
 }
 
 type Handlers interface {
 	HealthHandler(w http.ResponseWriter, r *http.Request)
 	SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 	SlackCallbackHandler(w http.ResponseWriter, r *http.Request)
+	OptInHandler(w http.ResponseWriter, r *http.Request)
+	OptOutHandler(w http.ResponseWriter, r *http.Request)
+	EnableHandler(w http.ResponseWriter, r *http.Request)
+	DisableHandler(w http.ResponseWriter, r *http.Request)
 
 	writeResponse(w http.ResponseWriter, resp interface{}, status int)
 }
 
-func NewHandlers(services services.Services, spotifyAuthenticator spotify.Authenticator, spotifyState, slackClientID, slackClientSecret, slackAuthURL string) Handlers {
+func NewHandlers(services services.Services, spotifyAuthenticator spotify.Authenticator,
+	spotifyState, slackClientID, slackClientSecret, slackAuthURL, slackSigningSecret string) Handlers {
 	return handlers{
 		services,
 		spotifyAuthenticator,
@@ -41,22 +51,8 @@ func NewHandlers(services services.Services, spotifyAuthenticator spotify.Authen
 		slackClientID,
 		slackClientSecret,
 		slackAuthURL,
+		slackSigningSecret,
 	}
-}
-
-func (h handlers) writeResponse(w http.ResponseWriter, resp interface{}, status int) {
-	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
-	}
-	w.Write(jsonResp)
-}
-
-func (h handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("New Relic ok")
-	fmt.Fprintf(w, "OK")
 }
 
 func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +63,7 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.InvalidCookie
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 	slackAccessToken, err := r.Cookie("slack_access_token")
@@ -74,6 +71,7 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.InvalidCookie
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -82,6 +80,7 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.InvalidSpotifyAuthCode
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -99,6 +98,7 @@ func (h handlers) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request)
 		appError := app_error.AddUserError
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -118,6 +118,7 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -128,6 +129,7 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -151,6 +153,7 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		appError := app_error.SlackAuthBadRequest
 		fmt.Println(err, appError)
 		h.writeResponse(w, appError.Error(), appError.Status())
+
 		return
 	}
 
@@ -163,4 +166,175 @@ func (h handlers) SlackCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	spotifyAuthURL := h.spotifyAuthenticator.AuthURL(h.spotifyState)
 
 	http.Redirect(w, r, spotifyAuthURL, http.StatusSeeOther)
+}
+
+func (h handlers) OptInHandler(w http.ResponseWriter, r *http.Request) {
+	err := h.verifySlackSignature(w, r)
+	if err != nil {
+		fmt.Println(err)
+		h.writeResponse(w, "error", http.StatusBadRequest)
+
+		return
+	}
+
+	h.writeResponse(w, "Please visit: https://slack.com/oauth/v2/authorize?client_id=1514600029252.1508440748514&scope=commands,chat:write&user_scope=users.profile:read,users.profile:write", http.StatusOK)
+}
+
+func (h handlers) OptOutHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	err := h.verifySlackSignature(w, r)
+	if err != nil {
+		fmt.Println(err)
+		h.writeResponse(w, "error", http.StatusBadRequest)
+
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	slackUserID := r.PostForm.Get("user_id")
+
+	err = h.services.RemoveUserBySlackID(ctx, slackUserID)
+	if err != nil {
+		appError := app_error.RemoveUserError
+		fmt.Println(err, appError)
+		h.writeResponse(w, appError.Error(), appError.Status())
+
+		return
+	}
+
+	h.writeResponse(w, "All your data has been removed from Spotify Status", http.StatusOK)
+}
+
+func (h handlers) EnableHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	err := h.verifySlackSignature(w, r)
+	if err != nil {
+		fmt.Println(err)
+		h.writeResponse(w, "error", http.StatusBadRequest)
+
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	user := domain.User{
+		SlackUserID: r.PostForm.Get("user_id"),
+		Enabled:     true,
+	}
+
+	err = h.services.UpdateUserEnabledBySlackID(ctx, user)
+	if err != nil {
+		appError := app_error.RemoveUserError
+		fmt.Println(err, appError)
+		h.writeResponse(w, appError.Error(), appError.Status())
+
+		return
+	}
+
+	h.writeResponse(w, "Spotify Status has been enabled", http.StatusOK)
+}
+
+func (h handlers) DisableHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	err := h.verifySlackSignature(w, r)
+	if err != nil {
+		fmt.Println(err)
+		h.writeResponse(w, "error", http.StatusBadRequest)
+
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+
+		return
+	}
+
+	user := domain.User{
+		SlackUserID: r.PostForm.Get("user_id"),
+		Enabled:     false,
+	}
+
+	err = h.services.UpdateUserEnabledBySlackID(ctx, user)
+	if err != nil {
+		appError := app_error.RemoveUserError
+		fmt.Println(err, appError)
+		h.writeResponse(w, appError.Error(), appError.Status())
+
+		return
+	}
+
+	h.writeResponse(w, "Spotify Status has been disabled", http.StatusOK)
+}
+
+func (h handlers) verifySlackSignature(w http.ResponseWriter, r *http.Request) error {
+	slackTimestamp := r.Header.Get("X-Slack-Request-Timestamp")
+
+	unixInt, err := strconv.ParseInt(slackTimestamp, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	// The request timestamp is more than five minutes from local time.
+	// It could be a replay attack, so let's ignore it.
+	slackTime := time.UnixMilli(unixInt)
+	if time.Since(slackTime) > 60*5 {
+		return err
+	}
+
+	var bodyString string
+	err = json.NewDecoder(r.Body).Decode(&bodyString)
+	if err != nil {
+		return err
+	}
+
+	signature := "v0:" + slackTimestamp + ":" + bodyString
+
+	hash := hmac.New(sha256.New, []byte(h.slackSigningSecret))
+
+	_, err = hash.Write([]byte(signature))
+	if err != nil {
+		return err
+	}
+
+	hashSignature := "v0=" + hex.EncodeToString(hash.Sum(nil))
+
+	slackSignature := r.Header.Get("X-Slack-Signature")
+
+	if !hmac.Equal([]byte(hashSignature), []byte(slackSignature)) {
+		return err
+	}
+
+	return nil
+}
+
+func (h handlers) writeResponse(w http.ResponseWriter, resp interface{}, status int) {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	jsonResp, err := json.Marshal(resp)
+	if err != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+
+	w.Write(jsonResp)
+}
+
+func (h handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("New Relic ok")
+	fmt.Fprintf(w, "OK")
 }

@@ -25,6 +25,7 @@ func (e appError) Status() int {
 var AddUserError = newAppError("ADD_USER_ERROR", http.StatusInternalServerError)
 var InvalidSpotifyAuthCode = newAppError("INVALID_SPOTIFY_TOKEN", http.StatusForbidden)
 var InvalidCookie = newAppError("INVALID_COOKIE", http.StatusForbidden)
+var RemoveUserError = newAppError("REMOVE_USER_ERROR", http.StatusInternalServerError)
 var SlackAuthBadRequest = newAppError("SLACK_AUTH_BAD_REQUEST", http.StatusBadRequest)
 var UserNotFound = newAppError("USER_NOT_FOUND", http.StatusNotFound)
 var UserAlreadyExists = newAppError("USER_ALREADY_EXISTS", http.StatusConflict)

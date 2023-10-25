@@ -40,6 +40,7 @@ func main() {
 	spotifyClientID := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_ID")
 	spotifyClientSecret := os.Getenv("SPOTIFY_SLACK_APP_SPOTIFY_CLIENT_SECRET")
 	cryptoKey := os.Getenv("SPOTIFY_SLACK_APP_CRYPTO_KEY")
+	slackSigningSecret := os.Getenv("SPOTIFY_SLACK_APP_SIGNING_SECRET")
 	port := os.Getenv("PORT")
 
 	// Setup New Relic
@@ -73,7 +74,7 @@ func main() {
 	// Creating app layers (repositories, services, handlers)
 	repositories := repositories.NewRepository(db)
 	services := services.NewServices(repositories, spotifyAuthenticator, crypto)
-	handlers := handlers.NewHandlers(services, spotifyAuthenticator, stateGenerator(), slackClientID, slackClientSecret, slackAuthURL)
+	handlers := handlers.NewHandlers(services, spotifyAuthenticator, stateGenerator(), slackClientID, slackClientSecret, slackAuthURL, slackSigningSecret)
 
 	// Setup cronjob for updating status
 	c := cron.New(cron.WithSeconds())
@@ -84,6 +85,10 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", handlers.SpotifyCallbackHandler)
 	mux.HandleFunc("/slackAuth", handlers.SlackCallbackHandler)
+	mux.HandleFunc("/opt-in", handlers.OptInHandler)
+	mux.HandleFunc("/opt-out", handlers.OptOutHandler)
+	mux.HandleFunc("/disable", handlers.DisableHandler)
+	mux.HandleFunc("/enable", handlers.EnableHandler)
 	mux.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/users", handlers.HealthHandler))
 	fsHome := http.FileServer(http.Dir("./static/home"))
 	mux.Handle("/", fsHome)
